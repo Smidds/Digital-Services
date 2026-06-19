@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 
-export const db = drizzle(process.env.DATABASE_URL!);
+import * as schema from './db/schema';
+
+export const db = drizzle(process.env.DATABASE_CONNECTION_STRING!, { schema });
 export {
 	fairDetailsTable,
-	shiftsTable,
-	timeSlotsTable,
+	rolesTable,
+	slotsTable,
 	registrationsTable,
-	additionalRolesTable,
-	adminUsersTable
+	userSettingsTable
 } from './db/schema';

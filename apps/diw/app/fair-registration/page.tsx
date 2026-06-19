@@ -1,27 +1,64 @@
-import { SideBar } from "@/components/fair-registration-sidebar"
+import { Suspense } from "react";
+import { connection } from "next/server";
+import { Skeleton } from "@sdfwa/ui/components/skeleton";
+import { getActiveFair, getRolesWithSlots } from "@/lib/actions/fair";
+import { getMyRegistrations } from "@/lib/actions/registration";
+import { getContactInfo } from "@/lib/actions/contact";
+import { getSession } from "@/lib/auth/session";
+import { FairRegistrationClient } from "./fair-registration-client";
 
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@sdfwa/ui/components/sidebar"
+async function FairRegistrationContent() {
+	await connection();
+
+	const fair = await getActiveFair();
+
+	if (!fair) {
+		return (
+			<div className="flex flex-1 items-center justify-center p-4">
+				<p className="text-muted-foreground">
+					No fair is currently active. Check back later.
+				</p>
+			</div>
+		);
+	}
+
+	const session = await getSession();
+	const roles = await getRolesWithSlots(fair.id);
+	const [userRegistrations, contactInfo] = await Promise.all([
+		session ? getMyRegistrations() : Promise.resolve([]),
+		session ? getContactInfo(fair.id) : Promise.resolve(null),
+	]);
+
+	return (
+		<FairRegistrationClient
+			roles={roles}
+			isLoggedIn={!!session}
+			memberId={session?.user.memberId ?? null}
+			userRegistrations={userRegistrations}
+			fairStartDate={fair.startDate}
+			fairEndDate={fair.endDate}
+			fairClosedDates={fair.closedDates}
+			fairId={fair.id}
+			contactValidated={contactInfo?.contactValidated ?? true}
+			initialAddress={contactInfo?.address ?? ""}
+			initialPhone={contactInfo?.phone ?? ""}
+		/>
+	);
+}
+
+function FairRegistrationFallback() {
+	return (
+		<div className="p-4 mx-auto w-full max-w-[1200px] space-y-3">
+			<Skeleton className="h-9 w-64" />
+			<Skeleton className="h-64 w-full" />
+		</div>
+	);
+}
 
 export default function Page() {
-  return (
-    <SidebarProvider>
-      <SideBar />
-      <SidebarInset>
-        <header className="bg-background sticky top-0 flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="grid auto-rows-min gap-4 md:grid-cols-5">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div key={i} className="bg-muted/50 aspect-square rounded-xl" />
-            ))}
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  )
+	return (
+		<Suspense fallback={<FairRegistrationFallback />}>
+			<FairRegistrationContent />
+		</Suspense>
+	);
 }
